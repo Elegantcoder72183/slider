@@ -1,7 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 
 export default function Slider({ slides }) {
   const [active, setActive] = useState(Math.floor(slides.length / 2));
+
+  const startX = useRef(null);
+  const endX = useRef(null);
+  const isDragging = useRef(false);
 
   const nextSlide = () => {
     setActive((p) => (p + 1 < slides.length ? p + 1 : p));
@@ -11,16 +15,71 @@ export default function Slider({ slides }) {
     setActive((p) => (p - 1 >= 0 ? p - 1 : p));
   };
 
+  // Common swipe handler
+  const handleSwipe = () => {
+    if (startX.current === null || endX.current === null) return;
+    const diff = startX.current - endX.current;
+
+    if (diff > 50) nextSlide(); // swipe left
+    else if (diff < -50) prevSlide(); // swipe right
+
+    startX.current = null;
+    endX.current = null;
+    isDragging.current = false;
+  };
+
+  // --- Touch Events ---
+  const handleTouchStart = (e) => {
+    startX.current = e.touches[0].clientX;
+  };
+  const handleTouchMove = (e) => {
+    endX.current = e.touches[0].clientX;
+  };
+  const handleTouchEnd = () => {
+    handleSwipe();
+  };
+
+  // --- Mouse Events (desktop) ---
+  const handleMouseDown = (e) => {
+    isDragging.current = true;
+    startX.current = e.clientX;
+  };
+  const handleMouseMove = (e) => {
+    if (!isDragging.current) return;
+    endX.current = e.clientX;
+  };
+  const handleMouseUp = () => {
+    if (!isDragging.current) return;
+    handleSwipe();
+  };
+
   return (
     <div className="flex flex-col items-center w-full">
       {/* Slides wrapper */}
-      <div className="relative flex items-center justify-center overflow-hidden w-full" style={{ maxWidth: 1000, height: 543.3 }}>
+      <div
+        className="relative flex items-center justify-center overflow-hidden w-full select-none"
+        style={{ maxWidth: 1000, height: 543.3 }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp} // if cursor leaves container
+      >
         {slides.map((src, i) => {
           const offset = i - active;
 
-          // responsive scaling
-          const spacing = window.innerWidth < 640 ? 100 : window.innerWidth < 1024 ? 150 : 220;
-          const scale = offset === 0 ? 1 : Math.max(0, 1 - 0.2 * Math.abs(offset));
+          // responsive spacing
+          const spacing =
+            window.innerWidth < 640
+              ? 100
+              : window.innerWidth < 1024
+              ? 150
+              : 220;
+
+          const scale =
+            offset === 0 ? 1 : Math.max(0, 1 - 0.2 * Math.abs(offset));
           const opacity = Math.abs(offset) > 2 ? 0 : offset === 0 ? 1 : 0.9;
           const zIndex = 100 - Math.abs(offset);
           const rotateY = offset === 0 ? 0 : offset > 0 ? -10 : 10;
@@ -31,7 +90,9 @@ export default function Slider({ slides }) {
               key={i}
               className="absolute transition-all duration-500 ease-in-out"
               style={{
-                transform: `perspective(1000px) translateX(${offset * spacing}px) scale(${scale}) rotateY(${rotateY}deg)`,
+                transform: `perspective(1000px) translateX(${
+                  offset * spacing
+                }px) scale(${scale}) rotateY(${rotateY}deg)`,
                 zIndex,
                 opacity,
                 filter,
@@ -41,10 +102,20 @@ export default function Slider({ slides }) {
               <img
                 src={src}
                 alt={`Slide ${i + 1}`}
-                className="rounded-xl shadow-lg object-cover"
+                className="rounded-xl shadow-lg object-cover pointer-events-none"
                 style={{
-                  width: window.innerWidth < 640 ? "200px" : window.innerWidth < 1024 ? "280px" : "354.75px",
-                  height: window.innerWidth < 640 ? "300px" : window.innerWidth < 1024 ? "430px" : "543.3px",
+                  width:
+                    window.innerWidth < 640
+                      ? "200px"
+                      : window.innerWidth < 1024
+                      ? "280px"
+                      : "354.75px",
+                  height:
+                    window.innerWidth < 640
+                      ? "300px"
+                      : window.innerWidth < 1024
+                      ? "430px"
+                      : "543.3px",
                 }}
               />
             </div>
